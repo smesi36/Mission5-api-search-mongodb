@@ -11,7 +11,7 @@ router.get("/api/search", async (req, res) => {
 
   try {
     console.log(`🔍 Searching for: "${keyword}"`);
-    const results = await AuctionItems.find(
+    let results = await AuctionItems.find(
       { $text: { $search: keyword } }, //full-text search query
       {
         score: { $meta: "textScore" }, //include text score in projection
@@ -21,6 +21,19 @@ router.get("/api/search", async (req, res) => {
         reserve_price: true,
       }
     ).sort({ score: { $meta: "textScore" } }); //sort by relevance
+
+// If no results, try regex search for partial matches
+
+    if (results.length === 0 && keyword) {
+      const regex = new RegExp(keyword, 'i');
+      results = await AuctionItems.find({
+        $or: [
+          { title: regex },
+          { description: regex }
+        ]
+      });
+    }
+
     // If no results are found, return a message and an empty array
     if (results.length === 0) {
       return res.status(200).json({
